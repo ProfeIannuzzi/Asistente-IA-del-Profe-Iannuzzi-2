@@ -1,38 +1,28 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-require('dotenv').config();
-const { Configuration, OpenAIApi } = require('openai');
-
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const { OpenAI } = require("openai");
 const app = express();
+const port = process.env.PORT || 3000;
+
 app.use(cors());
 app.use(bodyParser.json());
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-});
-const openai = new OpenAIApi(configuration);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-app.post('/api/ask', async (req, res) => {
+app.post("/api/ask", async (req, res) => {
+  const { question } = req.body;
+  if (!question) return res.status(400).json({ error: "Pregunta faltante" });
   try {
-    const { question } = req.body;
-
-    const completion = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: "gpt-4",
-      messages: [
-        { role: "system", content: "Sos un asistente académico del profesor Iannuzzi. Respondé con lenguaje técnico apropiado para alumnos de 6to año de escuela técnica. Prioridad a contenido de documentos del profe, luego Wikipedia, luego fuentes académicas confiables. Indicá fuente al final. Si querés ampliar con internet, preguntá primero al alumno. No respondas si se te habla con lenguaje inapropiado." },
-        { role: "user", content: question }
-      ]
+      messages: [{ role: "user", content: question }],
+      temperature: 0.7,
     });
-
-    res.json(completion.data);
+    res.json({ answer: response.choices[0].message.content.trim() });
   } catch (error) {
-    console.error("Error al consultar OpenAI:", error);
-    res.status(500).json({ error: "Error al consultar OpenAI" });
+    res.status(500).json({ error: error.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
-});
+app.listen(port, () => console.log(`Servidor IA activo en puerto ${port}`));
