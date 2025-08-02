@@ -8,6 +8,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
+// Verificar si la clave está definida
+if (!process.env.OPENAI_API_KEY) {
+  console.error("❌ ERROR: La variable OPENAI_API_KEY NO está definida.");
+} else {
+  console.log("✅ Clave API detectada (truncada):", process.env.OPENAI_API_KEY.slice(0, 10) + "...");
+}
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.post("/api/ask", async (req, res) => {
