@@ -49,6 +49,7 @@ async function inicializarConocimiento() {
 
 inicializarConocimiento();
 
+// Ruta principal: responder preguntas normales
 app.post("/api/ask", async (req, res) => {
   const { question, modo, tema } = req.body;
 
@@ -83,6 +84,38 @@ Si necesitás ampliar, indicá: "¿Querés que amplíe esta información con fue
   }
 });
 
+// Ruta /api/ampliar: usar solo fuentes externas confiables
+app.post("/api/ampliar", async (req, res) => {
+  const { question } = req.body;
+  if (!question) return res.status(400).json({ error: "Pregunta faltante" });
+
+  try {
+    const prompt = `
+Ampliá la siguiente consulta solo con fuentes confiables externas (universidades, entidades educativas, Wikipedia, organismos públicos o privados reconocidos).
+Incluí al final una lista en formato APA con enlaces reales a las fuentes utilizadas.
+
+Consulta: "${question}"
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.6,
+    });
+
+    const texto = response.choices[0].message.content.trim();
+    const links = [...texto.matchAll(/https?:\/\/[^\s)\]]+/g)].map(match => match[0]);
+
+    res.json({
+      answer: texto,
+      sources: links,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ruta para modo repaso
 async function responderModoRepaso(res, tema) {
   try {
     const prompt = `
