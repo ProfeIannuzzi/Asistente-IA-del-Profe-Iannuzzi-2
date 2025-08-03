@@ -9,7 +9,13 @@ const pdfParse = require("pdf-parse");
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// ✅ Configuración CORS específica para Render frontend
+app.use(cors({
+  origin: "https://asistente-ia-del-profe-iannuzzi.onrender.com",
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(bodyParser.json());
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -19,6 +25,8 @@ let conocimientoBase = "";
 // Leer PDFs de DOCUMENTOS DE ENTRENAMIENTO
 async function cargarPDFs() {
   const dir = path.join(__dirname, "DOCUMENTOS DE ENTRENAMIENTO");
+  if (!fs.existsSync(dir)) return "";
+
   const files = fs.readdirSync(dir).filter(f => f.endsWith(".pdf"));
   let contenido = "";
 
@@ -31,7 +39,7 @@ async function cargarPDFs() {
   return contenido;
 }
 
-// Cargar también enlaces de videos
+// Leer enlaces de videos
 function cargarVideos() {
   const ruta = path.join(__dirname, "DOCUMENTOS DE ENTRENAMIENTO", "videos_utiles.txt");
   if (fs.existsSync(ruta)) {
@@ -49,7 +57,6 @@ async function inicializarConocimiento() {
 
 inicializarConocimiento();
 
-// Ruta principal: responder preguntas normales
 app.post("/api/ask", async (req, res) => {
   const { question, modo, tema } = req.body;
 
@@ -80,42 +87,11 @@ Si necesitás ampliar, indicá: "¿Querés que amplíe esta información con fue
     const respuesta = response.choices[0].message.content.trim() + "\n\nEsta respuesta es elaborada en base al material provisto por el Profesor.";
     res.json({ answer: respuesta });
   } catch (error) {
+    console.error("❌ Error al generar respuesta:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Ruta /api/ampliar: usar solo fuentes externas confiables
-app.post("/api/ampliar", async (req, res) => {
-  const { question } = req.body;
-  if (!question) return res.status(400).json({ error: "Pregunta faltante" });
-
-  try {
-    const prompt = `
-Ampliá la siguiente consulta solo con fuentes confiables externas (universidades, entidades educativas, Wikipedia, organismos públicos o privados reconocidos).
-Incluí al final una lista en formato APA con enlaces reales a las fuentes utilizadas.
-
-Consulta: "${question}"
-    `;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.6,
-    });
-
-    const texto = response.choices[0].message.content.trim();
-    const links = [...texto.matchAll(/https?:\/\/[^\s)\]]+/g)].map(match => match[0]);
-
-    res.json({
-      answer: texto,
-      sources: links,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Ruta para modo repaso
 async function responderModoRepaso(res, tema) {
   try {
     const prompt = `
@@ -140,6 +116,7 @@ Al final de cada pregunta, ofrecé:
     const texto = response.choices[0].message.content.trim() + "\n\nEsta respuesta es elaborada en base al material provisto por el Profesor.";
     res.json({ answer: texto });
   } catch (error) {
+    console.error("❌ Error en modo repaso:", error.message);
     res.status(500).json({ error: error.message });
   }
 }
