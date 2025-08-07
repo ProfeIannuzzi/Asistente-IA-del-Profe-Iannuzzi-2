@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -9,7 +10,6 @@ const pdfParse = require("pdf-parse");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// ✅ Configuración CORS específica para Render frontend
 app.use(cors({
   origin: "https://asistente-ia-del-profe-iannuzzi.onrender.com",
   methods: ["GET", "POST"],
@@ -22,28 +22,30 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 let conocimientoBase = "";
 
-// Leer PDFs de DOCUMENTOS DE ENTRENAMIENTO
 async function cargarPDFs() {
   const dir = path.join(__dirname, "DOCUMENTOS DE ENTRENAMIENTO");
   if (!fs.existsSync(dir)) return "";
-
   const files = fs.readdirSync(dir).filter(f => f.endsWith(".pdf"));
   let contenido = "";
 
   for (const file of files) {
     const buffer = fs.readFileSync(path.join(dir, file));
     const data = await pdfParse(buffer);
-    contenido += `\n\n[Documento: ${file}]\n${data.text}`;
-  }
+    contenido += `
 
+[Documento: ${file}]
+${data.text}`;
+  }
   return contenido;
 }
 
-// Leer enlaces de videos
 function cargarVideos() {
   const ruta = path.join(__dirname, "DOCUMENTOS DE ENTRENAMIENTO", "videos_utiles.txt");
   if (fs.existsSync(ruta)) {
-    return `\n\n[Videos útiles]\n${fs.readFileSync(ruta, "utf-8")}`;
+    return `
+
+[Videos útiles]
+${fs.readFileSync(ruta, "utf-8")}`;
   }
   return "";
 }
@@ -51,7 +53,8 @@ function cargarVideos() {
 async function inicializarConocimiento() {
   const textoPDFs = await cargarPDFs();
   const videos = cargarVideos();
-  conocimientoBase = textoPDFs + "\n" + videos;
+  conocimientoBase = textoPDFs + "
+" + videos;
   console.log("✅ Conocimiento cargado");
 }
 
@@ -60,9 +63,7 @@ inicializarConocimiento();
 app.post("/api/ask", async (req, res) => {
   const { question, modo, tema } = req.body;
 
-  if (modo === "repaso" && tema) {
-    return responderModoRepaso(res, tema);
-  }
+  if (modo === "repaso" && tema) return responderModoRepaso(res, tema);
 
   if (!question) return res.status(400).json({ error: "Pregunta faltante" });
 
@@ -76,15 +77,16 @@ Material del profesor:
 ${conocimientoBase}
 
 Si necesitás ampliar, indicá: "¿Querés que amplíe esta información con fuentes confiables externas?".
-    `;
-
+`;
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.5,
     });
 
-    const respuesta = response.choices[0].message.content.trim() + "\n\nEsta respuesta es elaborada en base al material provisto por el Profesor.";
+    const respuesta = response.choices[0].message.content.trim() + "
+
+Esta respuesta es elaborada en base al material provisto por el Profesor.";
     res.json({ answer: respuesta });
   } catch (error) {
     console.error("❌ Error al generar respuesta:", error.message);
@@ -106,14 +108,15 @@ Al final de cada pregunta, ofrecé:
 📚 Nueva pregunta del mismo tema.
 🔙 Volver a la página de bienvenida.
 `;
-
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
     });
 
-    const texto = response.choices[0].message.content.trim() + "\n\nEsta respuesta es elaborada en base al material provisto por el Profesor.";
+    const texto = response.choices[0].message.content.trim() + "
+
+Esta respuesta es elaborada en base al material provisto por el Profesor.";
     res.json({ answer: texto });
   } catch (error) {
     console.error("❌ Error en modo repaso:", error.message);
